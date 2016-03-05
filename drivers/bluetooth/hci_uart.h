@@ -2,6 +2,7 @@
  *
  *  Bluetooth HCI UART driver
  *
+ *  Copyright (C) 2000-2001  Qualcomm Incorporated
  *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
  *  Copyright (C) 2004-2005  Marcel Holtmann <marcel@holtmann.org>
  *  Copyright (c) 2000-2001, 2010, 2012 The Linux Foundation. All rights reserved.
@@ -46,6 +47,8 @@
 #define HCI_UART_ATH3K	6
 
 #define HCI_UART_RAW_DEVICE	0
+#define HCI_UART_RESET_ON_INIT	1
+#define HCI_UART_CREATE_AMP	2
 
 struct hci_uart;
 
@@ -65,8 +68,9 @@ struct hci_uart {
 	unsigned long		flags;
 	unsigned long		hdev_flags;
 
+	struct work_struct	write_work;
+
 	struct hci_uart_proto	*proto;
-	struct tasklet_struct	tty_wakeup_task;
 	void			*priv;
 
 	struct sk_buff		*tx_skb;
@@ -76,7 +80,6 @@ struct hci_uart {
 
 /* HCI_UART proto flag bits */
 #define HCI_UART_PROTO_SET			0
-#define HCI_UART_PROTO_SET_IN_PROGRESS		1
 
 /* TX states  */
 #define HCI_UART_SENDING	1
