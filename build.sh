@@ -1,29 +1,33 @@
 #!/bin/bash
-# NetHunter kernel for Samsung Galaxy S4 Active build script by jcadduono
+# TWRP kernel for Samsung Galaxy S4 Active build script by jcadduono
 
 ################### BEFORE STARTING ################
 #
 # download a working toolchain and extract it somewhere and configure this
 # file to point to the toolchain's root directory.
+# I highly recommend using a Linaro GCC 4.9.x arm-linux-gnueabihf toolchain.
+# Download it here:
+# https://releases.linaro.org/components/toolchain/binaries/4.9-2016.02/arm-linux-gnueabihf/
 #
 # once you've set up the config section how you like it, you can simply run
-# ./build.sh [DEVICE]
+# ./build.sh
 #
 ##################### DEVICES #####################
 #
-# jactivelte = GT-I9295
+# jactivelte = Samsung Galaxy S4 Active
+#              GT-I9295
 #
 ###################### CONFIG ######################
 
-# root directory of jactivelte git repo (default is this script's location)
+# root directory of jactivelte kernel git repo (default is this script's location)
 RDIR=$(pwd)
 
-[ $VER ] || \
+[ "$VER" ] ||
 # version number
-VER=$(cat $RDIR/VERSION)
+VER=$(cat "$RDIR/VERSION")
 
 # directory containing cross-compile arm toolchain
-TOOLCHAIN=$HOME/build/toolchain/arm-cortex_a15-linux-gnueabihf-linaro_4.9.4-2015.06
+TOOLCHAIN=$HOME/build/toolchain/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabihf
 
 # amount of cpu threads to use in kernel make process
 THREADS=5
@@ -31,42 +35,52 @@ THREADS=5
 ############## SCARY NO-TOUCHY STUFF ###############
 
 export ARCH=arm
-export CROSS_COMPILE=$TOOLCHAIN/bin/arm-eabi-
+export CROSS_COMPILE=$TOOLCHAIN/bin/arm-linux-gnueabihf-
 
-[ "$1" ] && {
-	DEVICE=$1
-} || {
-	DEVICE=jactivelte
-}
-
-[ "$TARGET" ] || TARGET=nethunter
+[ "$TARGET" ] || TARGET=twrp
+[ "$1" ] && DEVICE=$1
+[ "$DEVICE" ] || DEVICE=jactivelte
 
 DEFCONFIG=${TARGET}_${DEVICE}_defconfig
 
-[ -f "$RDIR/arch/$ARCH/configs/${DEFCONFIG}" ] || {
-	echo "Config $DEFCONFIG not found in $ARCH configs!"
+ABORT()
+{
+	echo "Error: $*"
 	exit 1
 }
 
-export LOCALVERSION=$VER
+[ -f "$RDIR/arch/$ARCH/configs/${DEFCONFIG}" ] ||
+abort "Config $DEFCONFIG not found in $ARCH configs!"
 
-KDIR=$RDIR/arch/$ARCH/boot
+export LOCALVERSION="$TARGET-$DEVICE-$VER"
 
 CLEAN_BUILD()
 {
 	echo "Cleaning build..."
-	cd $RDIR
+	cd "$RDIR"
 	rm -rf build
+}
+
+SETUP_BUILD()
+{
+	echo "Creating kernel config for $LOCALVERSION..."
+	cd "$RDIR"
+	mkdir -p build
+	make -C "$RDIR" O=build "$DEFCONFIG" \
+		VARIANT_DEFCONFIG="$VARIANT_DEFCONFIG" \
+		|| ABORT "Failed to set up build"
 }
 
 BUILD_KERNEL()
 {
-	echo "Creating kernel config..."
-	cd $RDIR
-	mkdir -p build
-	make -C $RDIR O=build $DEFCONFIG
-	echo "Starting build for $DEVICE..."
-	make -C $RDIR O=build -j"$THREADS"
+	echo "Starting build for $LOCALVERSION..."
+	while ! make -C "$RDIR" O=build -j"$THREADS"; do
+		read -p "Build failed. Retry? " do_retry
+		case $do_retry in
+			Y|y) continue ;;
+			*) return 1 ;;
+		esac
+	done
 }
 
-CLEAN_BUILD && BUILD_KERNEL && echo "Finished building $DEVICE for $TARGET!"
+CLEAN_BUILD && SETUP_BUILD && BUILD_KERNEL && echo "Finished building $LOCALVERSION!"

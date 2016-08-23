@@ -1,45 +1,41 @@
 #!/bin/bash
 # simple script for executing menuconfig
 
-# root directory of jactivelte git repo (default is this script's location)
+# root directory of jactivelte kernel git repo (default is this script's location)
 RDIR=$(pwd)
 
 # directory containing cross-compile arm toolchain
-TOOLCHAIN=$HOME/build/toolchain/arm-cortex_a15-linux-gnueabihf-linaro_4.9.4-2015.06
+TOOLCHAIN=$HOME/build/toolchain/gcc-linaro-4.9-2016.02-x86_64_arm-linux-gnueabihf
 
 export ARCH=arm
-export CROSS_COMPILE=$TOOLCHAIN/bin/arm-eabi-
+export CROSS_COMPILE=$TOOLCHAIN/bin/arm-linux-gnueabihf-
 
-[ "$1" ] && {
-	DEVICE=$1
-} || {
-	DEVICE=jactivelte
-}
+[ "$TARGET" ] || TARGET=twrp
+[ "$1" ] && DEVICE=$1
+[ "$DEVICE" ] || DEVICE=jactivelte
 
-[ "$TARGET" ] || TARGET=nethunter
-
-DEFCONFIG=${TARGET}_${DEVICE}_defconfig
+DEFCONFIG="${TARGET}_${DEVICE}_defconfig"
 DEFCONFIG_FILE=$RDIR/arch/$ARCH/configs/$DEFCONFIG
 
-[ -f "$DEFCONFIG_FILE" ] || {
+[ -f "$RDIR/arch/$ARCH/configs/$DEFCONFIG" ] || {
 	echo "Config $DEFCONFIG not found in $ARCH configs!"
 	exit 1
 }
 
-cd $RDIR
+cd "$RDIR"
 echo "Cleaning build..."
 rm -rf build
 mkdir build
-make -s -i -C $RDIR O=build $DEFCONFIG menuconfig
+make -s -i -C "$RDIR" O=build "$DEFCONFIG" menuconfig
 echo "Showing differences between old config and new config"
 echo "-----------------------------------------------------"
-command -v colordiff >/dev/null 2>&1 && {
+if command -v colordiff >/dev/null 2>&1; then
 	diff -Bwu --label "old config" "$DEFCONFIG_FILE" --label "new config" build/.config | colordiff
-} || {
+else
 	diff -Bwu --label "old config" "$DEFCONFIG_FILE" --label "new config" build/.config
 	echo "-----------------------------------------------------"
 	echo "Consider installing the colordiff package to make diffs easier to read"
-}
+fi
 echo "-----------------------------------------------------"
 echo -n "Are you satisfied with these changes? Y/N: "
 read option
